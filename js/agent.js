@@ -134,9 +134,11 @@ function AgentBrain(gameEngine) {
     this.size = 4;
     this.previousState = gameEngine.grid.serialize();
     this.reset();
+    this.score = 0;
 };
 
-AgentBrain.prototype.reset = function() {
+AgentBrain.prototype.reset = function () {
+    this.score = 0;
     this.grid = new Grid(this.previousState.size, this.previousState.cells);
 };
 
@@ -193,7 +195,7 @@ AgentBrain.prototype.move = function (direction) {
                     tile.updatePosition(positions.next);
 
                     // Update the score
-                    //self.score += merged.value;
+                    self.score += merged.value;
 
                 } else {
                     self.moveTile(tile, positions.farthest);
@@ -205,7 +207,7 @@ AgentBrain.prototype.move = function (direction) {
             }
         });
     });
-    console.log(moved);
+    //console.log(moved);
     if (moved) {
         this.addRandomTile();
     }
@@ -269,46 +271,53 @@ function LookAheadAgent() {
 
 LookAheadAgent.prototype.selectMove = function (gameManager) {
     var brain = new AgentBrain(gameManager);
-    var action = 0;
+    this.lastScore = gameManager.score;
+    brain.score = this.lastScore;
+    console.log("lastScore " + this.lastScore + " brainScore " + brain.score);
+    var action = -1;
     var max = -1;
 
     for (var i = 0; i < 4; i++) {
         if (brain.move(i)) {
             var score = -1;
             for (var j = 0; j < 4; j++) {
+                if (j > 0) brain.move(i);
                 if (brain.move(j)) {
-                    var val = this.evaluateGrid(brain.grid);
+                    var val = this.evaluateGrid(brain);
                     if (val > score) {
                         score = val;
                     }
                 }
+                brain.reset();
             }
-            if (score === -1) score = this.evaluateGrid(brain.grid);
+            if (score === -1) score = this.evaluateGrid(brain);
             if (score > max) {
                 max = score;
                 action = i;
             }
-            console.log("score: " + score + " max: " + max);
+     //       console.log("score: " + score + " max: " + max);
         } else {
-            console.log("move failed " + i);
+  //          console.log("move failed " + i);
             //action++;
         }
         brain.reset();
     }
-    console.log(action);
+    if(action === -1) console.log(action);
     return action;
 };
 
-LookAheadAgent.prototype.evaluateGrid = function (grid) {
+LookAheadAgent.prototype.evaluateGrid = function (gameManager) {
     var that = this;
 
-    var count = 0;
+ //   console.log(this.lastScore + " " + gameManager.score);
 
-    function isEmpty(x, y, cell) {
-        if (cell === null) count++;
-    };
+    var count = gameManager.score;
 
-    grid.eachCell(isEmpty);
+    //function isEmpty(x, y, cell) {
+    //    if (cell === null) count++;
+    //};
+
+    //gameManager.grid.eachCell(isEmpty);
 
     return count;
 };
