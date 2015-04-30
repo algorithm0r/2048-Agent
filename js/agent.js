@@ -266,20 +266,74 @@ AgentBrain.prototype.positionsEqual = function (first, second) {
 function LookAheadAgent() {
     this.mutationRate = 0.10;
 
+    this.functionList = [];
+    this.genes = [];
+
+    this.loadFunctions();
+
+    for (var i = 0; i < this.functionList.length; i++) {
+        this.genes.push(1);
+    }
+
     this.score = 0;
+};
+
+LookAheadAgent.prototype.loadFunctions = function() {
+    function emptyCells(gameManager) {
+        var count = 0;
+        function isEmpty(x, y, cell) {
+            if (cell === null) count++;
+        };
+
+        gameManager.grid.eachCell(isEmpty);
+        return count;
+    };
+
+    this.functionList.push(emptyCells);
+
+    var emptyCount = 0;
+    function empty(gameManager) {
+        var x = Math.floor(emptyCount / 4);
+        var y = emptyCount % 4;
+        emptyCount = (emptyCount + 1) % 16;
+        if (gameManager.grid.cells[x][y] === null) return 0;
+        else return 1;
+    };
+
+    var tileCount = 0;
+    function tile(gameManager) {
+        var x = Math.floor(tileCount / 4);
+        var y = tileCount % 4;
+        tileCount = (tileCount + 1) % 16;
+        var cell = gameManager.grid.cells[x][y];
+        if (cell !== null) return Math.log(cell.value)/Math.LN2;
+        else return 0;
+    };
+
+    for (var i = 0; i < 16; i++) {
+        this.functionList.push(empty);
+        this.functionList.push(tile);
+    }
+
+    function score(gameManager) {
+        var count = gameManager.score;
+
+        return count;
+    };
+
+    this.functionList.push(score);
 };
 
 LookAheadAgent.prototype.selectMove = function (gameManager) {
     var brain = new AgentBrain(gameManager);
     this.lastScore = gameManager.score;
     brain.score = this.lastScore;
-    console.log("lastScore " + this.lastScore + " brainScore " + brain.score);
     var action = -1;
     var max = -1;
 
     for (var i = 0; i < 4; i++) {
         if (brain.move(i)) {
-            var score = -1;
+            var score = Number.NEGATIVE_INFINITY;
             for (var j = 0; j < 4; j++) {
                 if (j > 0) brain.move(i);
                 if (brain.move(j)) {
@@ -290,7 +344,7 @@ LookAheadAgent.prototype.selectMove = function (gameManager) {
                 }
                 brain.reset();
             }
-            if (score === -1) score = this.evaluateGrid(brain);
+            if (score === Number.NEGATIVE_INFINITY) score = this.evaluateGrid(brain);
             if (score > max) {
                 max = score;
                 action = i;
@@ -309,101 +363,92 @@ LookAheadAgent.prototype.selectMove = function (gameManager) {
 LookAheadAgent.prototype.evaluateGrid = function (gameManager) {
     var that = this;
 
- //   console.log(this.lastScore + " " + gameManager.score);
+    var count = 0;
 
-    var count = gameManager.score;
-
-    //function isEmpty(x, y, cell) {
-    //    if (cell === null) count++;
-    //};
-
-    //gameManager.grid.eachCell(isEmpty);
+    for (var i = 0; i < this.functionList.length; i++) {
+        count += this.genes[i]*this.functionList[i](gameManager);
+    }
 
     return count;
 };
 
 LookAheadAgent.prototype.cloneAndMutate = function () {
-    
-    return new LookAheadAgent();
-};
+    var agent = new LookAheadAgent();
 
+    for(var i = 0; i < this.functionList.length; i++) {
+        var value = 0;
+        if(this.mutationRate > Math.random())
+            value = Math.random() > 0.5 ? 0.1 : -0.1; 
+        agent.genes[i] = this.genes[i] + value;
+    }
+        
+    return agent;
+};
 
 // This code runs the simulation and sends the selected moves to the game
 function AgentManager(gameManager) {
     this.gameManager = gameManager;
 
-    this.agent = new LookAheadAgent();
+    this.numAgents = 16;
+    this.numRuns = 4;
+    this.runs = 0;
+    this.averageScore = 0;
 
-    //this.numAgents = 100;
-    //this.numRuns = 3;
-    //this.runs = 0;
-    //this.averageScore = 0;
+    this.population = [];
 
-    //this.population = [];
+    for (var i = 0; i < this.numAgents; i++) {
+        this.population.push(new LookAheadAgent());
+    }
 
-    //for (var i = 0; i < this.numAgents; i++) {
-    //    this.population.push(new BlindAgent());
-    //}
-
-    //this.agent = 0;
-    //this.gen = 0;
-
+    this.agent = 0;
+    this.gen = 0;
 };
 
 AgentManager.prototype.selectMove = function () {
     // 0: up, 1: right, 2: down, 3: left
-    if (this.gameManager.over) setTimeout(this.gameManager.restart.bind(this.gameManager), 1000);
-    else
-        if (!this.gameManager.move(this.agent.selectMove(this.gameManager))) console.log("bad move");
+    //if (this.gameManager.over) setTimeout(this.gameManager.restart.bind(this.gameManager), 1000);
+    //else
+    //    if (!this.gameManager.move(this.agent.selectMove(this.gameManager))) console.log("bad move");
 
     // game over
-    //if (this.gameManager.over) {
-    //    console.log("Agent " + this.agent + " Run " + this.runs + " Score " + this.gameManager.score);
-    //    var score = this.gameManager.score;
-    //    this.averageScore += score / this.numRuns;
-    //    this.runs++;
-    //    if (this.runs === this.numRuns) {
-    //        this.population[this.agent].score = this.averageScore;
-    //        this.averageScore = 0;
-    //        this.runs = 0;
-    //        console.log("Agent " + this.agent + " Averarge Score " + this.population[this.agent].score);
+    if (this.gameManager.over) {
+        console.log("Agent " + this.agent + " Run " + this.runs + " Score " + this.gameManager.score);
+        var score = this.gameManager.score;
+        this.averageScore += score / this.numRuns;
+        this.runs++;
+        if (this.runs === this.numRuns) {
+            this.population[this.agent].score = this.averageScore;
+            this.averageScore = 0;
+            this.runs = 0;
+            console.log("Agent " + this.agent + " Averarge Score " + this.population[this.agent].score);
+            console.log(this.population[this.agent].genes);
+            this.agent++;
+            if (this.agent === this.numAgents) {
+                this.population.sort(function (a, b) {
+                    return a.score - b.score;
+                });
 
-    //        this.agent++;
-    //        if (this.agent === this.numAgents) {
-    //            this.population.sort(function (a, b) {
-    //                return a.score - b.score;
-    //            });
+                for (var i = 0; i < this.numAgents; i++) {
+                    console.log(this.population[i].score);
+                }
 
-    //            for (var i = 0; i < this.numAgents; i++) {
-    //                console.log(this.population[i].score);
-    //            }
+                console.log("GENERATION " + this.gen++);
+                console.log("Max Score " + this.population[this.population.length - 1].score);
 
-    //            console.log("GENERATION " + this.gen++);
-    //            console.log("Max Score " + this.population[this.population.length - 1].score);
+                this.population.splice(0, this.numAgents / 2);
+                var len = this.population.length;
+                for (var i = 0; i < this.numAgents - this.numAgents / 2; i++) {
+                    var index = randomInt(len);
+                    this.population.push(this.population[index].cloneAndMutate());
+                }
 
-    //            this.population.splice(0, this.numAgents / 2);
-    //            var len = this.population.length;
-    //            for (var i = 0; i < this.numAgents - this.numAgents / 2; i++) {
-    //                var index = randomInt(len);
-    //                this.population.push(this.population[index].cloneAndMutate());
-    //            }
-
-    //            this.agent = 0;
-    //        }
-    //    }
-    //    
-
-    //} else { // game ongoing
-    //    var agent = this.population[this.agent];
-    //    var perm = agent.selectMove().perm;
-
-    //    if (!this.gameManager.move(perm[0]))
-    //        if (!this.gameManager.move(perm[1]))
-    //            if (!this.gameManager.move(perm[2])) {
-    //                this.gameManager.move(perm[3]);
-    //                agent.actions.splice(0, 0, perm[3]);
-    //            } else agent.actions.splice(0, 0, perm[2]);
-    //        else agent.actions.splice(0, 0, perm[1]);
-    //    else agent.actions.splice(0, 0, perm[0]);
-    //}
+                this.agent = 0;
+            }
+        }
+        
+        setTimeout(this.gameManager.restart.bind(this.gameManager), 1000);
+    } else { // game ongoing
+        var agent = this.population[this.agent];
+        if (!this.gameManager.move(agent.selectMove(this.gameManager))) console.log("bad move");
+    }
 };
