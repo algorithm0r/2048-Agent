@@ -272,7 +272,7 @@ function LookAheadAgent() {
     this.loadFunctions();
 
     for (var i = 0; i < this.functionList.length; i++) {
-        this.genes.push(1);
+        this.genes.push(0);
     }
 
     this.score = 0;
@@ -329,7 +329,7 @@ LookAheadAgent.prototype.selectMove = function (gameManager) {
     this.lastScore = gameManager.score;
     brain.score = this.lastScore;
     var action = -1;
-    var max = -1;
+    var max = Number.NEGATIVE_INFINITY;
 
     for (var i = 0; i < 4; i++) {
         if (brain.move(i)) {
@@ -378,7 +378,7 @@ LookAheadAgent.prototype.cloneAndMutate = function () {
     for(var i = 0; i < this.functionList.length; i++) {
         var value = 0;
         if(this.mutationRate > Math.random())
-            value = Math.random() > 0.5 ? 0.1 : -0.1; 
+            value = Math.random() > 0.5 ? 1 : -1; 
         agent.genes[i] = this.genes[i] + value;
     }
         
@@ -389,15 +389,15 @@ LookAheadAgent.prototype.cloneAndMutate = function () {
 function AgentManager(gameManager) {
     this.gameManager = gameManager;
 
-    this.numAgents = 16;
-    this.numRuns = 4;
+    this.numAgents = 32;
+    this.numRuns = 8;
     this.runs = 0;
     this.averageScore = 0;
 
     this.population = [];
 
     for (var i = 0; i < this.numAgents; i++) {
-        this.population.push(new LookAheadAgent());
+        this.population.push(new LookAheadAgent().cloneAndMutate());
     }
 
     this.agent = 0;
