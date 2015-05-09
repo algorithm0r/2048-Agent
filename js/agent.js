@@ -288,8 +288,14 @@ LookAheadAgent.prototype.loadFunctions = function() {
         gameManager.grid.eachCell(isEmpty);
         return count;
     };
-
     this.functionList.push(emptyCells);
+
+    function score(gameManager) {
+        var count = gameManager.score;
+
+        return count;
+    };
+    this.functionList.push(score);
 
     var emptyCount = 0;
     function empty(gameManager) {
@@ -299,6 +305,10 @@ LookAheadAgent.prototype.loadFunctions = function() {
         if (gameManager.grid.cells[x][y] === null) return 0;
         else return 1;
     };
+
+    for (var i = 0; i < 16; i++) {
+        this.functionList.push(empty);
+    }
 
     var tileCount = 0;
     function tile(gameManager) {
@@ -311,17 +321,95 @@ LookAheadAgent.prototype.loadFunctions = function() {
     };
 
     for (var i = 0; i < 16; i++) {
-        this.functionList.push(empty);
         this.functionList.push(tile);
     }
 
-    function score(gameManager) {
-        var count = gameManager.score;
-
-        return count;
+    var upCount = 0;
+    function up(gameManager) {
+        var x = Math.floor(upCount / 4) + 1;
+        var y = upCount % 4;
+        upCount = (upCount + 1) % 12;
+        var cell = gameManager.grid.cells[x][y];
+        var cell2 = gameManager.grid.cells[x-1][y];
+        if (cell && cell2 && cell.value === cell2.value) return 1;
+        else return 0;
     };
 
-    this.functionList.push(score);
+    for (var i = 0; i < 12; i++) {
+        this.functionList.push(up);
+    }
+
+    var leftCount = 0;
+    function left(gameManager) {
+        var x = Math.floor(leftCount / 3);
+        var y = leftCount % 3 + 1;
+        leftCount = (leftCount + 1) % 12;
+        var cell = gameManager.grid.cells[x][y];
+        var cell2 = gameManager.grid.cells[x][y-1];
+        if (cell && cell2 && cell.value === cell2.value) return 1;
+        else return 0;
+    };
+
+    for (var i = 0; i < 12; i++) {
+        this.functionList.push(left);
+    }
+
+    var upCount2 = 0;
+    function up2(gameManager) {
+        var x = Math.floor(upCount2 / 4) + 1;
+        var y = upCount2 % 4;
+        upCount2 = (upCount2 + 1) % 12;
+        var cell = gameManager.grid.cells[x][y];
+        var cell2 = gameManager.grid.cells[x - 1][y];
+        if (cell && cell2 && (cell.value * 2 === cell2.value || cell.value === cell2.value * 2)) return 1;
+        else return 0;
+    };
+
+    for (var i = 0; i < 12; i++) {
+        this.functionList.push(up2);
+    }
+
+    var leftCount2 = 0;
+    function left2(gameManager) {
+        var x = Math.floor(leftCount2 / 3);
+        var y = leftCount2 % 3 + 1;
+        leftCount2 = (leftCount2 + 1) % 12;
+        var cell = gameManager.grid.cells[x][y];
+        var cell2 = gameManager.grid.cells[x][y - 1];
+        if (cell && cell2 && (cell.value * 2 === cell2.value || cell.value === cell2.value * 2)) return 1;
+        else return 0;
+    };
+
+    for (var i = 0; i < 12; i++) {
+        this.functionList.push(left2);
+    }
+
+    var maxCount = 0;
+    function maxCell(gameManager) {
+        var cellX = Math.floor(maxCount / 4);
+        var cellY = maxCount % 4;
+
+        var max = gameManager.grid.cells[0][0];
+        var xMax = 0;
+        var yMax = 0;
+
+        function findMax(x, y, cell) {
+            if (cell && cell.value > max) {
+                max = cell.value;
+                xMax = x;
+                yMax = y;
+            }
+        };
+
+        gameManager.grid.eachCell(findMax);
+
+        return (cellX === xMax) && (cellY === yMax);
+    };
+
+    for (var i = 0; i < 16; i++) {
+        this.functionList.push(maxCell);
+    }
+
 };
 
 LookAheadAgent.prototype.selectMove = function (gameManager) {
@@ -449,6 +537,7 @@ AgentManager.prototype.selectMove = function () {
         setTimeout(this.gameManager.restart.bind(this.gameManager), 1000);
     } else { // game ongoing
         var agent = this.population[this.agent];
-        if (!this.gameManager.move(agent.selectMove(this.gameManager))) console.log("bad move");
+        if (this.gameManager.won && !this.gameManager.keepPlaying) setTimeout(this.gameManager.keepPlaying.bind(this.gameManager), 1);
+        else if (!this.gameManager.move(agent.selectMove(this.gameManager))) console.log("bad move");
     }
 };
